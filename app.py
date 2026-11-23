@@ -696,7 +696,7 @@ def panel_usuarios():
         cuenta[iniciales] = cuenta.get(iniciales, 0) + 1
         filas.append((k, iniciales, cuenta[iniciales], v["alias"]))
 
-    partes = ['<div class="panel-titulo">Usuarios en línea</div>',
+    partes = ['<div class="panel-titulo">Estudiantes en línea</div>',
               f'<div class="contador">{total}</div><div class="vacio">conectados ahora</div><br>']
     for k, letra, n, alias in filas[:12]:
         color = _COLORES_USUARIO[zlib.crc32(k.encode()) % len(_COLORES_USUARIO)]
@@ -704,7 +704,7 @@ def panel_usuarios():
         if k == mi_id:
             texto = f"{esc(alias)} (tú)"
         else:
-            texto = f"Usuario {etiqueta}"
+            texto = f"Estudiante {etiqueta}"
         partes.append(f'<div class="usuario"><div class="avatar" style="background:{color};border-color:{color}">{esc(etiqueta)}</div>'
                       f'<div>{texto}</div><div class="punto"></div></div>')
     if len(filas) > 12:
@@ -749,7 +749,7 @@ def menu_superior():
             st.markdown("**Registro (obligatorio)**")
             st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=20, placeholder="Escribe tu nombre",
                           label_visibility="collapsed")
-            st.caption("Es obligatorio. Los demás solo ven tu inicial en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
+            st.caption("Es obligatorio. Los demás solo ven tu inicial en la lista de estudiantes en línea. Si lo borras, la página te lo pedirá de nuevo.")
     if ss.vista != "inicio":
         st.markdown("<div class='vacio' style='text-align:center'>Aplicación IoTecNM · Instituto Tecnológico Nacional de México, Tuxtla Gutiérrez</div>",
                     unsafe_allow_html=True)
