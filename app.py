@@ -374,15 +374,19 @@ header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stToolbar"], [d
 /* ===== versión para celulares (al final para que tenga prioridad) ===== */
 @media (max-width: 760px) {
   .block-container { padding-top: 4.6rem !important; }
-  .st-key-hero { min-height: 0; padding: 1.2rem .9rem 270px .9rem; }
+  .block-container { position: relative !important; }
+  .st-key-menu { position: absolute !important; top: 14px !important; left: 14px !important; }
+  .hero-titulo { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+  .st-key-hero { min-height: 0; padding: 4.2rem .9rem 270px .9rem; }
   .st-key-hero [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: wrap !important; gap: .6rem !important; }
   .st-key-hero [data-testid="stColumn"] { min-width: 0 !important; width: auto !important; flex: 1 1 42% !important; }
   .st-key-hero [data-testid="stColumn"]:nth-child(2) { order: -1; flex: 1 1 100% !important; }
   .st-key-go_cm button, .st-key-go_cpm button { width: 100% !important; padding: .7rem .3rem; font-size: .95rem; }
   .st-key-go_cm, .st-key-go_cpm, .st-key-go_cm .stButton, .st-key-go_cpm .stButton { justify-content: center !important; }
   .hero-titulo { margin-top: .4rem; }
-  .emblema { padding-top: .6rem; }
+  .emblema { padding-top: .6rem; padding-bottom: 1.6rem; }
   .emblema::before { width: 280px; height: 280px; top: calc(.6rem + 100px); }
+  .st-key-go_cm, .st-key-go_cpm { margin-top: .8rem; }
   .logo-sol { width: 150px; height: 200px; }
   .st-key-hero::before { width: 30%; }
 }
