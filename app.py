@@ -467,12 +467,46 @@ perro perros perrito perritos perrita perritas perrote perrazo perrisimo guarra 
 puerco puerca puercos cerdo cerdos marrano marrana marranos cochino cochina cochinos cochinada rata ratas
 gordo gorda gordos gordas gordito gordita naco naca nacos asqueroso asquerosa asquerosos apestoso apestosa feo fea
 burro burra tonto tonta tontos mensa menso mensos zonzo zonza loser noob lacra basura mugre mugroso mugrosa gai gais cbron cbrona cbrn vgra vrga vrg pndj pndjo
+arrombada arrombado arschloch asshat asshole assholes atarantada aweonao babaca bastards batard bdsm
+beaner beaners bicha bichona bitches bitchy blowjob boiola bollocks boob boobs branleur
+branleuse buceta bucetas bugarron bugarrona bullshit bullshitter cabronazo cabroncete cabroncito cadela cagado
+cagando cagarse cagaste cagate cagona cagones capullo capullos carajo carajos caralho caralhos
+caremonda careverga cazzi cazzo chatte chichona chimba chimbo chingadamadre chingamos chingaquedito chingaron
+chinguen chingus chink chinks chucha chuchaetumare chuchamadre chupapijas chupapollas clitoris cocks cocksucker
+cocksuckers cogedor cogelon cogiendo coglione coglioni cojonudo conard conchatumadre conchesumadre conchetumare connard
+connasse coons cornudo couille couilles coño cretin culattone culazo culeada culeao culear
+culiada culiado culiando culiao culito culote cumshot cunt cunts cuzao cuzona degenerada
+degenerado desgracado dickhead dicks dildo dipshit douche douchebag dumbass dumbasses dyke dykes
+encule enculer erotica erotico escroto esperma estupidez faggots fags fdp ficken ficker
+fighe filhodaputa finocchio foda fodase foder fodida fodido follada follador follon forra
+fotze frocio fuck fucked fuckers fucking fuckoff fucks fuckyou furcia gilipolla gilipollas
+gook gooks gouine guevon guevona handjob hijadeputa hijaputa hijodeputa hijoeputa hijueputas hitler
+homosexualidad honky horny hostia hostias hurensohn idiots imbeciles invertida invertido jackass jizz
+jodete jodida jodido jodidos jodienda jodon jodona jotazo jotitos jotote kike kikes
+ladyboy lameculos lamehuevos lesbi lgbt lgbtiq lgbtq madrazo mamabicho mamapollas mariconazo mariconcito
+marimacho mariposones masturbacion masturbar masturbate masturbation matate mayate mayates merda merde meretriz
+mierdosa mierdoso mignotta milf minchia molest molester mondongo mongolica mongolico mongolito moronegro
+motherfuckers muerete muertete mujerzuela nacas nalgon nalgona nazis negrata niggas niggers nique
+niquer nsfw ntm orgasm orgasmo orgia orgias otaria otario pajillera pajillero pajote
+pakis panochon pedofila pedofilia pedofilo pedophile pendejadas pendejazo pendejete pendejon pendejota pervertida
+pervertido petasse pezon pezones pichula pichulas pija pijas pinga pingas piranha pirobo
+pirobos piroca polla pollas pompino pornhub pornografia pornografico pornos porra prick pricks
+punheta punheteiro pussies pussy putain putamadre putaso putazos pute puteada puteria puterio
+putero putilla putillas putisima putisimo putiza puttana puttane queer queers raghead rape
+raped rapist rapists retard retardada retardado retarded retards ricchione safada safado salaud
+salopard salope sapatao scheiss scheisse schwuchtel schwul sexo sexoso sexting shemale shitface
+shithead shits shitty sidosa sidoso skank skanky slut sluts sodomita sodomitas sonofabitch
+spastic spaz spic spics stfu stronza stronzi stronzo subnormales tapette testiculo testiculos
+tetona tetudo thot titties tortillera tosser towelhead trannies tranny transexuales transgeneros troie
+trola trolos twat twats vadia vaffanculo vagabunda vagabundo vaginas veado vergazo vergudo
+verguero verguita viada viado violacion violada violadores wanker wankers weon weona wetback
+wetbacks whores wichser wtf xereca xoxota xxx zopenca zopenco zorrita zorron zorrona
 """.split()}
 
 # raíces que se bloquean aunque vayan dentro de otra palabra: cubre diminutivos y aumentativos
 # (pendejín, estupidín, mampín, putito, cabroncito, culerote...) y variantes escritas con faltas
 _RAICES_PROHIBIDAS = tuple(sorted({_normalizar(r) for r in """
-putis jotit jotot pendej pndj estupid mamp mamad mamon mamar putit putin putot puton putaz putam putea putiz putear
+conchetum chuchaet gilipoll hijoput hijueput hijuepu malparid careverg cabronaz motherf fuckin fucker shithead bullshit dickhead cocksuck asshol jackas dumbas arrombad filhodap vaffanc stronz puttan coglion hurenso schwucht scheiss ficken putis jotit jotot pendej pndj estupid mamp mamad mamon mamar putit putin putot puton putaz putam putea putiz putear
 cabron chingad chingon chingat chinguen hijueput hijoput hijodeput mierd culer culit culiar ojete marico malpari
 pinche fuck fuk homosex travest transvest trasvest lesbian lesbic imbecil idiot cagad pajero pajera puñet
 zorra golfa ramera prostitut pelotud huevon baboso retrasad subnormal mongolo vergon vergaz vergud
@@ -480,6 +514,12 @@ zorra golfa ramera prostitut pelotud huevon baboso retrasad subnormal mongolo ve
 
 _LEET = str.maketrans({"@": "a", "4": "a", "3": "e", "1": "i", "!": "i", "|": "i", "0": "o", "$": "s", "5": "s",
                        "7": "t", "+": "t", "8": "b", "¡": "i", "€": "e"})
+
+
+# groserías cortas que se bloquean si van pegadas al inicio o al final de otra palabra (Victorputo, putoVictor...)
+_AFIJOS = tuple(_normalizar(p) for p in "puto puta culo joto gay gey homo ojete zorra chocho panocha cabron pendejo pendeja mamon mampo mierda culero culera puerco cerdo marrano cochino".split())
+_AFIJOS_SOLO_FINAL = tuple(_normalizar(p) for p in "verga".split())
+_SALVO = {"gaytan", "gaynor", "gaytano"}                  # apellidos/nombres reales que empiezan igual
 
 
 def _variantes(ficha):
@@ -560,7 +600,18 @@ def contiene_grosería(nombre):
     for c in sueltas:
         if any(r in c for r in _RAICES_PROHIBIDAS):
             return True
+        if c not in _SALVO:
+            if any(c.startswith(p) or c.endswith(p) for p in _AFIJOS if len(c) > len(p)):
+                return True
+            if any(c.endswith(p) for p in _AFIJOS_SOLO_FINAL if len(c) > len(p)):
+                return True
+        if any(p in c for p in ("puto", "puta")) and c not in _SALVO:
+            return True
         if len(c) >= 7 and any(_distancia_1(c, p) for p in _LARGAS):
+            return True
+    sin_acentos = "".join(c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn")
+    for crudo in re.split(r"[ .\-'_]+", sin_acentos):   # perro/perra pegados: Victorperro (sin juntar la "rr")
+        if len(crudo) > 5 and any(crudo.startswith(p) or crudo.endswith(p) for p in ("perro", "perra")):
             return True
     for c in unidas:                                     # unidas: solo raíces largas (evita falsos positivos)
         if any(len(r) >= 6 and r in c for r in _RAICES_PROHIBIDAS):
