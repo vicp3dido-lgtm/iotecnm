@@ -462,7 +462,11 @@ estupidas tarado tarada retrasado retrasada mongolo subnormal baboso babosa huev
 puñeta puñetas violador violar pelotudo boludo cojudo cojones
 fuck fucker shit bitch dick cunt nigger nigga fag faggot slut whore asshole bastard pussy cock motherfucker
 transvesti transvestis trasvesti travesti travestis transexual transgenero lesbiana lesbianas lesbico lesbicas
-homosexual homosexuales bisexual bisexuales putin gai gais cbron cbrona cbrn vgra vrga vrg pndj pndjo
+homosexual homosexuales bisexual bisexuales putin
+perro perros perrito perritos perrita perritas perrote perrazo perrisimo guarra guarro
+puerco puerca puercos cerdo cerdos marrano marrana marranos cochino cochina cochinos cochinada rata ratas
+gordo gorda gordos gordas gordito gordita naco naca nacos asqueroso asquerosa asquerosos apestoso apestosa feo fea
+burro burra tonto tonta tontos mensa menso mensos zonzo zonza loser noob lacra basura mugre mugroso mugrosa gai gais cbron cbrona cbrn vgra vrga vrg pndj pndjo
 """.split()}
 
 # raíces que se bloquean aunque vayan dentro de otra palabra: cubre diminutivos y aumentativos
@@ -516,7 +520,8 @@ def _distancia_1(a, b):
     return True
 
 
-_LARGAS = [p for p in _PALABRAS_PROHIBIDAS if len(p) >= 7]
+_SUAVES = ("gord", "burr", "tont", "cochin", "puerc", "marran", "asquer", "apestos", "perr", "mugros", "mensos")
+_LARGAS = [p for p in _PALABRAS_PROHIBIDAS if len(p) >= 7 and not p.startswith(_SUAVES)]
 
 
 def contiene_grosería(nombre):
@@ -536,11 +541,12 @@ def contiene_grosería(nombre):
             pegadas.append(f)
     if racha:
         pegadas.append(racha)
+    pegadas = [_normalizar(p) for p in pegadas]
     uniones = []                                         # "pen dejo", "pu to" -> unir fichas vecinas
     for n in (2, 3):
         for i in range(len(fichas) - n + 1):
-            uniones.append("".join(fichas[i:i + n]))
-    todo = "".join(fichas)
+            uniones.append(_normalizar("".join(fichas[i:i + n])))
+    todo = _normalizar("".join(fichas))
     candidatas = set(fichas) | set(pegadas)
     sueltas = set()
     for c in candidatas:
@@ -567,10 +573,12 @@ def validar_nombre(nombre):
     nombre = " ".join((nombre or "").split())
     if len(nombre) < 2:
         return False, "Escribe tu nombre (mínimo 2 letras) para continuar."
-    if len(nombre) > 20:
-        return False, "El nombre puede tener máximo 20 caracteres."
     if contiene_grosería(nombre):
         return False, "Ese nombre no está permitido. Escribe tu nombre real, sin groserías."
+    if " " in nombre:
+        return False, "Escribe solo un nombre, sin espacios (por ejemplo: Víctor)."
+    if len(nombre) > 12:
+        return False, "El nombre puede tener máximo 12 letras."
     if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
         return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
     return True, ""
@@ -652,7 +660,7 @@ def menu_superior():
                 st.button(nombre, key=f"tema_{k}", on_click=elegir_tema, args=(nombre,))
             st.caption("«Sistema» sigue el modo claro u oscuro de tu dispositivo (Windows, Mac, Linux, iOS, Android).")
             st.markdown("**Registro (obligatorio)**")
-            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=20, placeholder="Escribe tu nombre",
+            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=12, placeholder="Escribe tu nombre",
                           label_visibility="collapsed")
             st.caption("Es obligatorio: tu nombre aparece en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
     if ss.vista != "inicio":
@@ -678,7 +686,7 @@ def pantalla_registro():
         st.markdown('<div class="hero-titulo reg-inst">Instituto Tecnológico Nacional Tuxtla Gutiérrez</div>'
                     '<div class="hero-titulo reg-app">Aplicación IoTecNM</div>', unsafe_allow_html=True)
         with st.form("form_registro", border=False):
-            st.text_input("Tu nombre", key="alias_nuevo", max_chars=20, placeholder="Escribe tu nombre")
+            st.text_input("Tu nombre", key="alias_nuevo", max_chars=12, placeholder="Escribe tu nombre")
             st.form_submit_button("Entrar", type="primary", on_click=registrar)
         if ss.get("reg_err"):
             st.error(ss.reg_err)
