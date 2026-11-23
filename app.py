@@ -4,7 +4,9 @@ Instituto Tecnológico Nacional de México · Tuxtla Gutiérrez
 import base64
 import html
 import os
+import re
 import time
+import unicodedata
 
 import pandas as pd
 import streamlit as st
@@ -26,23 +28,24 @@ CARPETA = os.path.dirname(os.path.abspath(__file__))
 # PALETAS (todas en azul, color del Instituto) Y TEMAS
 # ==========================================================================
 PALETAS = {
-    "Azul TecNM":      dict(icono="🔵", primary="#1B396A", secondary="#2F6DB5", accent="#5B9BD5", soft="#E3ECF8", soft2="#EEF3FB"),
-    "Azul cielo":      dict(icono="🩵", primary="#1F6FB8", secondary="#4C9BE0", accent="#8EC5F5", soft="#E3F1FD", soft2="#EEF7FE"),
-    "Verde esmeralda": dict(icono="🟢", primary="#0F6B4B", secondary="#2E9E75", accent="#6CCBA5", soft="#E1F4EC", soft2="#EEF8F3"),
-    "Turquesa":        dict(icono="🌊", primary="#0B6E7F", secondary="#1F9DB3", accent="#7ACFDC", soft="#DDF2F6", soft2="#EBF8FA"),
-    "Morado":          dict(icono="🟣", primary="#4B2C82", secondary="#7A55C2", accent="#B79BEA", soft="#ECE6F8", soft2="#F4F0FB"),
-    "Rosa":            dict(icono="🌸", primary="#A8326E", secondary="#D8559A", accent="#F2A0CB", soft="#FBE4F0", soft2="#FDF0F7"),
-    "Guinda":          dict(icono="🔴", primary="#7A1F3D", secondary="#B03A5E", accent="#E08AA5", soft="#F6E1E8", soft2="#FBEFF3"),
-    "Naranja":         dict(icono="🟠", primary="#B3470C", secondary="#E8742A", accent="#F5A66B", soft="#FCE9DC", soft2="#FEF3EB"),
-    "Dorado":          dict(icono="🟡", primary="#7A5A00", secondary="#C99A1B", accent="#F0CB6A", soft="#FBF1D2", soft2="#FDF8E6"),
-    "Grafito":         dict(icono="⚫", primary="#2B3340", secondary="#556070", accent="#9AA7B8", soft="#E6EAF0", soft2="#F1F3F7"),
+    "Azul":            dict(primary="#1B396A", secondary="#2F6DB5", accent="#5B9BD5", soft="#E3ECF8", soft2="#EEF3FB"),
+    "Azul cielo":      dict(primary="#1F6FB8", secondary="#4C9BE0", accent="#8EC5F5", soft="#E3F1FD", soft2="#EEF7FE"),
+    "Verde esmeralda": dict(primary="#0F6B4B", secondary="#2E9E75", accent="#6CCBA5", soft="#E1F4EC", soft2="#EEF8F3"),
+    "Turquesa":        dict(primary="#0B6E7F", secondary="#1F9DB3", accent="#7ACFDC", soft="#DDF2F6", soft2="#EBF8FA"),
+    "Morado":          dict(primary="#4B2C82", secondary="#7A55C2", accent="#B79BEA", soft="#ECE6F8", soft2="#F4F0FB"),
+    "Rosa":            dict(primary="#A8326E", secondary="#D8559A", accent="#F2A0CB", soft="#FBE4F0", soft2="#FDF0F7"),
+    "Guinda":          dict(primary="#7A1F3D", secondary="#B03A5E", accent="#E08AA5", soft="#F6E1E8", soft2="#FBEFF3"),
+    "Naranja":         dict(primary="#B3470C", secondary="#E8742A", accent="#F5A66B", soft="#FCE9DC", soft2="#FEF3EB"),
+    "Dorado":          dict(primary="#7A5A00", secondary="#C99A1B", accent="#F0CB6A", soft="#FBF1D2", soft2="#FDF8E6"),
+    "Grafito":         dict(primary="#2B3340", secondary="#556070", accent="#9AA7B8", soft="#E6EAF0", soft2="#F1F3F7"),
 }
+TEMAS = ["Sistema", "Claro", "Oscuro"]
 CLARO = dict(bg="#EAF0F9", surface="#FFFFFF", text="#0F172A", muted="#5B6B86",
              border="#D3DDEC", shadow="0 8px 24px rgba(27,57,106,.14)")
 OSCURO = dict(bg="#0C1424", surface="#14223A", text="#E8EEF9", muted="#9FB0CC",
               border="#243656", shadow="0 8px 24px rgba(0,0,0,.45)")
 
-ss.setdefault("paleta", "Azul TecNM")
+ss.setdefault("paleta", "Azul")
 ss.setdefault("tema", "Sistema")
 ss.setdefault("nombre", "")  # nombre registrado: se conserva en todas las páginas
 ss.setdefault("vista", "inicio")
@@ -153,8 +156,18 @@ def tema_de_streamlit():
         return None
 
 
+def _css_opcion(clave, fondo, elegida):
+    """Botón de lista con un círculo de color (para el menú de paletas y temas)."""
+    css = (f".st-key-{clave} button p::before{{content:'';display:inline-block;width:16px;height:16px;border-radius:50%;"
+           f"margin-right:10px;vertical-align:-3px;background:{fondo};box-shadow:0 0 0 1.5px rgba(150,160,180,.8);}}")
+    if elegida:
+        css += (f".st-key-{clave} button{{background:var(--soft) !important;border-color:var(--accent) !important;}}"
+                f".st-key-{clave} button p{{font-weight:600 !important;}}")
+    return css
+
+
 def construir_css():
-    p = PALETAS.get(ss.paleta, PALETAS["Azul TecNM"])
+    p = PALETAS.get(ss.paleta, PALETAS["Azul"])
     claro = dict(CLARO, title=p["primary"], soft=p["soft"], soft2=p["soft2"],
                  logo=p["primary"], halo=rgba(p["accent"], .32))
     oscuro = dict(OSCURO, title=p["accent"], soft="#1A2D4D", soft2="#162640",
@@ -200,6 +213,13 @@ def construir_css():
         if ("light" if ss.tema == "Claro" else "dark") != real:
             extra += '[data-testid="stDataFrame"]{filter:invert(1) hue-rotate(180deg);}'
 
+    # círculos de color del menú (paletas y temas) y elemento elegido
+    fondos_tema = ["linear-gradient(90deg,#ffffff 50%,#0C1424 50%)", "#ffffff", "#0C1424"]
+    for k, (nombre, pal) in enumerate(PALETAS.items()):
+        extra += _css_opcion(f"pal_{k}", pal["primary"], nombre == ss.paleta)
+    for k, nombre in enumerate(TEMAS):
+        extra += _css_opcion(f"tema_{k}", fondos_tema[k], nombre == ss.tema)
+
     return f"<style>{ESTILO_BASE}{raiz}{temas}{extra}</style>"
 
 
@@ -240,6 +260,14 @@ header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stToolbar"], [d
 .stApp button:hover { filter: brightness(1.08); }
 .stApp button[kind="primary"] p, .stApp [data-testid="stBaseButton-primary"] p { color: #fff !important; }
 .stApp button[kind="secondary"] p, .stApp [data-testid="stBaseButton-secondary"] p { color: var(--title) !important; }
+
+/* opciones del menú ☰ (paletas y temas) */
+[class*="st-key-pal_"] button, [class*="st-key-tema_"] button { width: 100%; justify-content: flex-start !important; text-align: left;
+  background: transparent !important; border: 1px solid transparent !important; border-radius: 12px !important;
+  padding: .3rem .6rem !important; min-height: 0 !important; box-shadow: none !important; }
+[class*="st-key-pal_"] button:hover, [class*="st-key-tema_"] button:hover { background: var(--soft) !important; }
+[class*="st-key-pal_"] button p, [class*="st-key-tema_"] button p { color: var(--text) !important; font-weight: 500; }
+[class*="st-key-pal_"], [class*="st-key-tema_"] { margin-bottom: -.55rem; }
 
 /* ===== portada ===== */
 .st-key-hero { position: relative; overflow: hidden; background-color: var(--surface); border-radius: 28px; box-shadow: var(--shadow);
@@ -342,6 +370,22 @@ header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stToolbar"], [d
 .punto { width: 9px; height: 9px; border-radius: 50%; background: #2ecc71; margin-left: auto; }
 .contador { font-size: 2rem; font-weight: 600; color: var(--title) !important; line-height: 1; }
 .muestra { display: inline-block; width: 24px; height: 24px; border-radius: 6px; margin-right: 4px; border: 1px solid var(--border); }
+
+/* ===== versión para celulares (al final para que tenga prioridad) ===== */
+@media (max-width: 760px) {
+  .block-container { padding-top: 4.6rem !important; }
+  .st-key-hero { min-height: 0; padding: 1.2rem .9rem 270px .9rem; }
+  .st-key-hero [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: wrap !important; gap: .6rem !important; }
+  .st-key-hero [data-testid="stColumn"] { min-width: 0 !important; width: auto !important; flex: 1 1 42% !important; }
+  .st-key-hero [data-testid="stColumn"]:nth-child(2) { order: -1; flex: 1 1 100% !important; }
+  .st-key-go_cm button, .st-key-go_cpm button { width: 100% !important; padding: .7rem .3rem; font-size: .95rem; }
+  .st-key-go_cm, .st-key-go_cpm, .st-key-go_cm .stButton, .st-key-go_cpm .stButton { justify-content: center !important; }
+  .hero-titulo { margin-top: .4rem; }
+  .emblema { padding-top: .6rem; }
+  .emblema::before { width: 280px; height: 280px; top: calc(.6rem + 100px); }
+  .logo-sol { width: 150px; height: 200px; }
+  .st-key-hero::before { width: 30%; }
+}
 """
 
 
@@ -390,6 +434,52 @@ def titulo_paso(n, texto):
 
 
 # ==========================================================================
+# VALIDACIÓN DE NOMBRES (sin groserías ni caracteres raros)
+# ==========================================================================
+def _normalizar(texto):
+    """Minúsculas, sin acentos y con las letras repetidas reducidas (putooo -> puto)."""
+    t = unicodedata.normalize("NFD", texto.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"(.)\1+", r"\1", t)
+
+
+_PALABRAS_PROHIBIDAS = {_normalizar(p) for p in """
+puto puta putos putas putazo putada pendejo pendeja pendejos pendejas cabron cabrona cabrones chinga chingar chingada
+chingado chingados chingadera chingatumadre verga vergas vergon mierda mierdas culero culera culeros culeras culo culos
+joto jota jotos marica maricon maricones mamon mamona mamones mamada mamadas mamar mames pinche pinches hijueputa
+hijoputa malparido gonorrea zorra idiota idiotas imbecil estupido estupida tarado tarada pene pitos pito chocho
+panocha vagina sexo porno nazi hitler violador cagada cagar pajero pendejada puñeta puñetas
+fuck fucker shit bitch dick cunt nigger fag slut whore asshole bastard
+""".split()}
+
+
+def validar_nombre(nombre):
+    """Devuelve (True, '') si el nombre es válido o (False, mensaje) si no lo es."""
+    nombre = " ".join((nombre or "").split())
+    if len(nombre) < 2:
+        return False, "Escribe tu nombre (mínimo 2 letras) para continuar."
+    if len(nombre) > 20:
+        return False, "El nombre puede tener máximo 20 caracteres."
+    if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
+        return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
+    fichas = _normalizar(nombre).replace(".", " ").replace("-", " ").replace("'", " ").split()
+    pegadas, racha = [], ""          # junta letras sueltas: "p u t o" -> "puto"
+    for f in fichas:
+        if len(f) == 1:
+            racha += f
+        else:
+            if racha:
+                pegadas.append(racha)
+                racha = ""
+            pegadas.append(f)
+    if racha:
+        pegadas.append(racha)
+    if any(f in _PALABRAS_PROHIBIDAS for f in fichas + pegadas):
+        return False, "Ese nombre no está permitido. Escribe tu nombre real, sin groserías."
+    return True, ""
+
+
+# ==========================================================================
 # USUARIOS EN LÍNEA (conteo anónimo + nombres que cada persona decida escribir)
 # ==========================================================================
 @st.cache_resource
@@ -411,6 +501,9 @@ def panel_usuarios():
     ahora = time.time()
     mi_id = id_sesion()
     reg[mi_id] = {"alias": (ss.get("nombre") or "").strip()[:20], "t": ahora}
+    for v in reg.values():
+        if v["alias"] and not validar_nombre(v["alias"])[0]:
+            v["alias"] = ""
     for k in [k for k, v in reg.items() if ahora - v["t"] > 75]:
         reg.pop(k, None)
 
@@ -433,23 +526,35 @@ def panel_usuarios():
 # MENÚ ☰ (esquina superior izquierda)
 # ==========================================================================
 def guardar_nombre():
-    ss.nombre = (ss.get("nombre_menu") or "").strip()[:20]
+    nombre = " ".join((ss.get("nombre_menu") or "").split())
+    ok, mensaje = validar_nombre(nombre)
+    if ok:
+        ss.nombre = nombre
+    else:
+        ss.nombre = ""        # vuelve a la pantalla de registro con el aviso
+        ss.reg_err = mensaje
+
+
+def elegir_paleta(nombre):
+    ss.paleta = nombre
+
+
+def elegir_tema(nombre):
+    ss.tema = nombre
+
 
 
 def menu_superior():
     with st.container(key="menu"):
         with st.popover("☰"):
-            st.markdown("**🎨 Paleta de colores**")
-            st.radio("Paleta", list(PALETAS), key="paleta", label_visibility="collapsed",
-                     format_func=lambda n: f"{PALETAS[n]['icono']}  {n}")
-            muestras = "".join(
-                f'<span class="muestra" style="background:{PALETAS[ss.paleta][c]}"></span>'
-                for c in ("primary", "secondary", "accent", "soft"))
-            st.markdown(muestras, unsafe_allow_html=True)
-            st.markdown("**🌓 Tema**")
-            st.radio("Tema", ["Sistema", "Claro", "Oscuro"], key="tema", label_visibility="collapsed")
+            st.markdown("**Paleta de colores**")
+            for k, nombre in enumerate(PALETAS):
+                st.button(nombre, key=f"pal_{k}", on_click=elegir_paleta, args=(nombre,))
+            st.markdown("**Tema**")
+            for k, nombre in enumerate(TEMAS):
+                st.button(nombre, key=f"tema_{k}", on_click=elegir_tema, args=(nombre,))
             st.caption("«Sistema» sigue el modo claro u oscuro de tu dispositivo (Windows, Mac, Linux, iOS, Android).")
-            st.markdown("**👤 Registro (obligatorio)**")
+            st.markdown("**Registro (obligatorio)**")
             st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=20, placeholder="Escribe tu nombre",
                           label_visibility="collapsed")
             st.caption("Es obligatorio: tu nombre aparece en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
@@ -462,12 +567,13 @@ def menu_superior():
 # REGISTRO OBLIGATORIO
 # ==========================================================================
 def registrar():
-    nombre = (ss.get("alias_nuevo") or "").strip()
-    if len(nombre) < 2:
-        ss.reg_err = "Escribe tu nombre (mínimo 2 letras) para continuar."
-    else:
-        ss.nombre = nombre[:20]
+    nombre = " ".join((ss.get("alias_nuevo") or "").split())
+    ok, mensaje = validar_nombre(nombre)
+    if ok:
+        ss.nombre = nombre
         ss.reg_err = None
+    else:
+        ss.reg_err = mensaje
 
 
 def pantalla_registro():
@@ -696,7 +802,7 @@ def pasos_cpm(r):
 def diagrama_dot(r):
     criticas = {x["Actividad"] for x in r["filas"] if x["Crítica"]}
     aristas_crit = {(a, b) for ruta in r["rutas"] for a, b in zip(ruta, ruta[1:])}
-    p = PALETAS.get(ss.paleta, PALETAS["Azul TecNM"])
+    p = PALETAS.get(ss.paleta, PALETAS["Azul"])
     dot = ["digraph G { rankdir=LR; bgcolor=transparent; node [shape=box, style=\"rounded,filled\", fontname=Helvetica, fontcolor=white];"]
     for x in r["filas"]:
         es = x["Actividad"] in criticas
