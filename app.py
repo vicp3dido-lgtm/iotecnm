@@ -447,27 +447,85 @@ def _normalizar(texto):
     return re.sub(r"(.)\1+", r"\1", t)
 
 
+# Palabras completas que se bloquean (comparación exacta con la ficha, ya normalizada)
 _PALABRAS_PROHIBIDAS = {_normalizar(p) for p in """
-puto puta putos putas putazo putada pendejo pendeja pendejos pendejas cabron cabrona cabrones chinga chingar chingada
-chingado chingados chingadera chingatumadre verga vergas vergon mierda mierdas culero culera culeros culeras culo culos
-joto jota jotos marica maricon maricones mamon mamona mamones mamada mamadas mamar mames pinche pinches hijueputa
-hijoputa malparido gonorrea zorra idiota idiotas imbecil estupido estupida tarado tarada pene pitos pito chocho
-panocha vagina sexo porno nazi hitler violador cagada cagar pajero pendejada puñeta puñetas
-fuck fucker shit bitch dick cunt nigger fag slut whore asshole bastard
+puto puta putos putas pito pitos pene penes culo culos ojete ojetes joto jota jotos jotas gay gays gey geys homo homos
+pta pto ptas ptos ptm hdp ctm vrg vrga verga vergas vergon vergota coger cogida cogidas sexo sexy porno porn nazi hitler
+perra perras zorra zorras zorro golfa golfas ramera prostituta lencha lenchas marica maricas maricon maricones
+mariquita mariquitas mariposon mariposones puñal puñales machorra marimacha afeminado amanerado fleto fletos trolo sarasa
+chocho chochos panocha panochas vagina tetas chichis nalgas caca cagada cagadas cagar cagon
+pinche pinches pendejo pendeja pendejos pendejas pndjo pndja cabron cabrona cabrones chinga chingar chingada chingado
+chingados chingadas chingadera chingatumadre chingas chingue chingues chingo chingon chingona culero culera culeros
+culeras mamon mamona mamones mamada mamadas mamar mames mampo mampa mampos mamador mamadora joder follar
+mierda mierdas hijueputa hijoputa malparido gonorrea idiota idiotas imbecil imbeciles estupido estupida estupidos
+estupidas tarado tarada retrasado retrasada mongolo subnormal baboso babosa huevon huevona pajero pajera pendejada
+puñeta puñetas violador violar pelotudo boludo cojudo cojones
+fuck fucker shit bitch dick cunt nigger nigga fag faggot slut whore asshole bastard pussy cock motherfucker
+transvesti transvestis trasvesti travesti travestis transexual transgenero lesbiana lesbianas lesbico lesbicas
+homosexual homosexuales bisexual bisexuales putin gai gais cbron cbrona cbrn vgra vrga vrg pndj pndjo
 """.split()}
 
+# raíces que se bloquean aunque vayan dentro de otra palabra: cubre diminutivos y aumentativos
+# (pendejín, estupidín, mampín, putito, cabroncito, culerote...) y variantes escritas con faltas
+_RAICES_PROHIBIDAS = tuple(sorted({_normalizar(r) for r in """
+putis jotit jotot pendej pndj estupid mamp mamad mamon mamar putit putin putot puton putaz putam putea putiz putear
+cabron chingad chingon chingat chinguen hijueput hijoput hijodeput mierd culer culit culiar ojete marico malpari
+pinche fuck fuk homosex travest transvest trasvest lesbian lesbic imbecil idiot cagad pajero pajera puñet
+zorra golfa ramera prostitut pelotud huevon baboso retrasad subnormal mongolo vergon vergaz vergud
+""".split()}))
 
-def validar_nombre(nombre):
-    """Devuelve (True, '') si el nombre es válido o (False, mensaje) si no lo es."""
-    nombre = " ".join((nombre or "").split())
-    if len(nombre) < 2:
-        return False, "Escribe tu nombre (mínimo 2 letras) para continuar."
-    if len(nombre) > 20:
-        return False, "El nombre puede tener máximo 20 caracteres."
-    if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
-        return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
-    fichas = _normalizar(nombre).replace(".", " ").replace("-", " ").replace("'", " ").split()
-    pegadas, racha = [], ""          # junta letras sueltas: "p u t o" -> "puto"
+_LEET = str.maketrans({"@": "a", "4": "a", "3": "e", "1": "i", "!": "i", "|": "i", "0": "o", "$": "s", "5": "s",
+                       "7": "t", "+": "t", "8": "b", "¡": "i", "€": "e"})
+
+
+def _variantes(ficha):
+    """Quita trucos de escritura: pvto -> puto, cavron -> cabron, kbron, ph -> f, etc."""
+    base = {ficha}
+    cambios = [("v", "u"), ("v", "b"), ("w", "u"), ("k", "c"), ("z", "s"), ("y", "i"), ("q", "c"), ("ph", "f"),
+               ("h", ""), ("x", "s"), ("j", "g")]
+    for _ in range(2):                                   # permite combinar dos trucos a la vez
+        for f in list(base):
+            for a, b in cambios:
+                if a in f:
+                    base.add(_normalizar(f.replace(a, b)))
+    return base
+
+
+def _distancia_1(a, b):
+    """True si a y b difieren como máximo en una letra (cambiada, borrada o agregada)."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):                                 # letras vecinas intercambiadas: pnedejo -> pendejo
+        d = [i for i in range(len(a)) if a[i] != b[i]]
+        if len(d) == 2 and d[1] == d[0] + 1 and a[d[0]] == b[d[1]] and a[d[1]] == b[d[0]]:
+            return True
+    if len(a) > len(b):
+        a, b = b, a
+    i = j = fallas = 0
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]:
+            i += 1
+            j += 1
+            continue
+        fallas += 1
+        if fallas > 1:
+            return False
+        if len(a) == len(b):
+            i += 1
+        j += 1
+    return True
+
+
+_LARGAS = [p for p in _PALABRAS_PROHIBIDAS if len(p) >= 7]
+
+
+def contiene_grosería(nombre):
+    """True si el texto contiene (aunque sea disfrazada) una grosería o término ofensivo."""
+    texto = " ".join(nombre.translate(_LEET).split())
+    fichas = _normalizar(texto).replace(".", " ").replace("-", " ").replace("'", " ").replace("_", " ").split()
+    if not fichas:
+        return False
+    pegadas, racha = [], ""                              # "p u t o" -> "puto"
     for f in fichas:
         if len(f) == 1:
             racha += f
@@ -478,8 +536,43 @@ def validar_nombre(nombre):
             pegadas.append(f)
     if racha:
         pegadas.append(racha)
-    if any(f in _PALABRAS_PROHIBIDAS for f in fichas + pegadas):
+    uniones = []                                         # "pen dejo", "pu to" -> unir fichas vecinas
+    for n in (2, 3):
+        for i in range(len(fichas) - n + 1):
+            uniones.append("".join(fichas[i:i + n]))
+    todo = "".join(fichas)
+    candidatas = set(fichas) | set(pegadas)
+    sueltas = set()
+    for c in candidatas:
+        sueltas |= _variantes(c)
+    unidas = set()
+    for c in uniones + [todo]:
+        unidas |= _variantes(c)
+    for c in sueltas | unidas:
+        if c in _PALABRAS_PROHIBIDAS:
+            return True
+    for c in sueltas:
+        if any(r in c for r in _RAICES_PROHIBIDAS):
+            return True
+        if len(c) >= 7 and any(_distancia_1(c, p) for p in _LARGAS):
+            return True
+    for c in unidas:                                     # unidas: solo raíces largas (evita falsos positivos)
+        if any(len(r) >= 6 and r in c for r in _RAICES_PROHIBIDAS):
+            return True
+    return False
+
+
+def validar_nombre(nombre):
+    """Devuelve (True, '') si el nombre es válido o (False, mensaje) si no lo es."""
+    nombre = " ".join((nombre or "").split())
+    if len(nombre) < 2:
+        return False, "Escribe tu nombre (mínimo 2 letras) para continuar."
+    if len(nombre) > 20:
+        return False, "El nombre puede tener máximo 20 caracteres."
+    if contiene_grosería(nombre):
         return False, "Ese nombre no está permitido. Escribe tu nombre real, sin groserías."
+    if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
+        return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
     return True, ""
 
 
