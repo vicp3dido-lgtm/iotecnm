@@ -518,8 +518,21 @@ _LEET = str.maketrans({"@": "a", "4": "a", "3": "e", "1": "i", "!": "i", "|": "i
 
 # groserías cortas que se bloquean si van pegadas al inicio o al final de otra palabra (Victorputo, putoVictor...)
 _AFIJOS = tuple(_normalizar(p) for p in "puto puta culo joto gay gey homo ojete zorra chocho panocha cabron pendejo pendeja mamon mampo mierda culero culera puerco cerdo marrano cochino".split())
-_AFIJOS_SOLO_FINAL = tuple(_normalizar(p) for p in "verga".split())
+_AFIJOS_SOLO_FINAL = tuple(_normalizar(p) for p in "verga shit nazi".split())
+_AFIJOS_AMBIGUOS = {"buro", "pito", "cock", "dick", "dicks", "fag", "niger", "pakis", "pene", "pera", "shit", "spic", "niga", "verga", "pitos", "penes", "cola", "caca", "rata", "gato", "feo", "fea", "gata", "pija", "pijas", "teta", "tetas", "pecho", "polla", "pollas", "coger", "rabo", "orto", "forro", "nazi", "nazis", "foda", "fick", "hure", "sexo", "sexy", "trans", "porn", "pinga", "pingas"}
+_AFIJOS_TODOS = tuple(sorted({p for p in set(_AFIJOS) | set(_PALABRAS_PROHIBIDAS) if len(p) >= 3} - _AFIJOS_AMBIGUOS))
 _SALVO = {"gaytan", "gaynor", "gaytano"}                  # apellidos/nombres reales que empiezan igual
+
+
+def _variantes_afijo(ficha):
+    """Como _variantes pero solo con cambios de letra muy parecidos (v/u/b, w/u, k/c), para no confundir nombres."""
+    base = {ficha}
+    for _ in range(2):
+        for f in list(base):
+            for a, b in (("v", "u"), ("v", "b"), ("w", "u"), ("k", "c")):
+                if a in f:
+                    base.add(_normalizar(f.replace(a, b)))
+    return base
 
 
 def _variantes(ficha):
@@ -600,15 +613,19 @@ def contiene_grosería(nombre):
     for c in sueltas:
         if any(r in c for r in _RAICES_PROHIBIDAS):
             return True
-        if c not in _SALVO:
-            if any(c.startswith(p) or c.endswith(p) for p in _AFIJOS if len(c) > len(p)):
-                return True
-            if any(c.endswith(p) for p in _AFIJOS_SOLO_FINAL if len(c) > len(p)):
-                return True
+
         if any(p in c for p in ("puto", "puta")) and c not in _SALVO:
             return True
         if len(c) >= 7 and any(_distancia_1(c, p) for p in _LARGAS):
             return True
+    for c in candidatas:                                 # groserías pegadas al inicio/final (Victorgay, putoVictor)
+        for ca in _variantes_afijo(c):
+            if ca in _SALVO:
+                continue
+            if any(ca.startswith(p) or ca.endswith(p) for p in _AFIJOS_TODOS if len(ca) > len(p)):
+                return True
+            if any(ca.endswith(p) for p in _AFIJOS_SOLO_FINAL if len(ca) > len(p)):
+                return True
     sin_acentos = "".join(c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn")
     for crudo in re.split(r"[ .\-'_]+", sin_acentos):   # perro/perra pegados: Victorperro (sin juntar la "rr")
         if len(crudo) > 5 and any(crudo.startswith(p) or crudo.endswith(p) for p in ("perro", "perra")):
@@ -628,8 +645,8 @@ def validar_nombre(nombre):
         return False, "Ese nombre no está permitido. Escribe tu nombre real, sin groserías."
     if " " in nombre:
         return False, "Escribe solo un nombre, sin espacios (por ejemplo: Víctor)."
-    if len(nombre) > 12:
-        return False, "El nombre puede tener máximo 12 letras."
+    if len(nombre) > 10:
+        return False, "El nombre puede tener máximo 10 letras."
     if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
         return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
     return True, ""
@@ -711,7 +728,7 @@ def menu_superior():
                 st.button(nombre, key=f"tema_{k}", on_click=elegir_tema, args=(nombre,))
             st.caption("«Sistema» sigue el modo claro u oscuro de tu dispositivo (Windows, Mac, Linux, iOS, Android).")
             st.markdown("**Registro (obligatorio)**")
-            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=12, placeholder="Escribe tu nombre",
+            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=10, placeholder="Escribe tu nombre",
                           label_visibility="collapsed")
             st.caption("Es obligatorio: tu nombre aparece en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
     if ss.vista != "inicio":
@@ -737,7 +754,7 @@ def pantalla_registro():
         st.markdown('<div class="hero-titulo reg-inst">Instituto Tecnológico Nacional Tuxtla Gutiérrez</div>'
                     '<div class="hero-titulo reg-app">Aplicación IoTecNM</div>', unsafe_allow_html=True)
         with st.form("form_registro", border=False):
-            st.text_input("Tu nombre", key="alias_nuevo", max_chars=12, placeholder="Escribe tu nombre")
+            st.text_input("Tu nombre", key="alias_nuevo", max_chars=10, placeholder="Escribe tu nombre")
             st.form_submit_button("Entrar", type="primary", on_click=registrar)
         if ss.get("reg_err"):
             st.error(ss.reg_err)
