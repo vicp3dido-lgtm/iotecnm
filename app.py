@@ -7,6 +7,7 @@ import os
 import re
 import time
 import unicodedata
+import zlib
 
 import pandas as pd
 import streamlit as st
@@ -365,7 +366,7 @@ header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stToolbar"], [d
 /* usuarios en línea */
 .panel-titulo { font-family: 'Playfair Display', serif; font-style: italic; color: var(--title) !important; font-size: 1.3rem; margin-bottom: .5rem; }
 .usuario { display: flex; align-items: center; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid var(--border); }
-.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff !important; display: flex;
+.avatar { min-width: 34px; height: 34px; padding: 0 .35rem; font-size: .85rem; box-sizing: border-box; border-radius: 50%; background: var(--primary); color: #fff !important; display: flex;
   align-items: center; justify-content: center; font-weight: 600; border: 2px solid var(--accent); }
 .punto { width: 9px; height: 9px; border-radius: 50%; background: #2ecc71; margin-left: auto; }
 .contador { font-size: 2rem; font-weight: 600; color: var(--title) !important; line-height: 1; }
@@ -643,10 +644,8 @@ def validar_nombre(nombre):
         return False, "Escribe tu nombre (mínimo 2 letras) para continuar."
     if contiene_grosería(nombre):
         return False, "Ese nombre no está permitido. Escribe tu nombre real, sin groserías."
-    if " " in nombre:
-        return False, "Escribe solo un nombre, sin espacios (por ejemplo: Víctor)."
-    if len(nombre) > 10:
-        return False, "El nombre puede tener máximo 10 letras."
+    if len(nombre) > 20:
+        return False, "El nombre puede tener máximo 20 caracteres."
     if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' .-]+", nombre):
         return False, "Usa solo letras en tu nombre (sin números ni símbolos)."
     return True, ""
@@ -668,12 +667,17 @@ def id_sesion():
         return "local"
 
 
+_COLORES_USUARIO = ["#2F6DB5", "#C0392B", "#27AE60", "#8E44AD", "#E67E22", "#16A085", "#D81B60", "#F1C40F", "#5D6D7E", "#00ACC1"]
+
+
 @st.fragment(run_every=20)
 def panel_usuarios():
+    """Lista de conectados: los demás solo ven la inicial (con color y número para distinguirlos)."""
     reg = registro_visitas()
     ahora = time.time()
     mi_id = id_sesion()
-    reg[mi_id] = {"alias": (ss.get("nombre") or "").strip()[:20], "t": ahora}
+    previo = reg.get(mi_id, {})
+    reg[mi_id] = {"alias": (ss.get("nombre") or "").strip()[:20], "t": ahora, "ini": previo.get("ini", ahora)}
     for v in reg.values():
         if v["alias"] and not validar_nombre(v["alias"])[0]:
             v["alias"] = ""
@@ -681,15 +685,30 @@ def panel_usuarios():
         reg.pop(k, None)
 
     total = len(reg)
-    con_nombre = [(k, v["alias"]) for k, v in reg.items() if v["alias"]]
+    con_nombre = sorted(((k, v) for k, v in reg.items() if v["alias"]), key=lambda kv: kv[1]["ini"])
     anonimos = total - len(con_nombre)
+
+    cuenta = {}                                   # número de orden entre quienes comparten iniciales: EP, EP2, EP3...
+    filas = []
+    for k, v in con_nombre:
+        palabras = v["alias"].split()
+        iniciales = "".join(p[0].upper() for p in palabras[:2])      # Emanuel Pérez -> EP, Pérez Emanuel -> PE
+        cuenta[iniciales] = cuenta.get(iniciales, 0) + 1
+        filas.append((k, iniciales, cuenta[iniciales], v["alias"]))
 
     partes = ['<div class="panel-titulo">Usuarios en línea</div>',
               f'<div class="contador">{total}</div><div class="vacio">conectados ahora</div><br>']
-    for k, alias in con_nombre[:8]:
-        tu = " (tú)" if k == mi_id else ""
-        partes.append(f'<div class="usuario"><div class="avatar">{esc(alias[0].upper())}</div>'
-                      f'<div>{esc(alias)}{tu}</div><div class="punto"></div></div>')
+    for k, letra, n, alias in filas[:12]:
+        color = _COLORES_USUARIO[zlib.crc32(k.encode()) % len(_COLORES_USUARIO)]
+        etiqueta = letra if cuenta[letra] == 1 else f"{letra}{n}"
+        if k == mi_id:
+            texto = f"{esc(alias)} (tú)"
+        else:
+            texto = f"Usuario {etiqueta}"
+        partes.append(f'<div class="usuario"><div class="avatar" style="background:{color};border-color:{color}">{esc(etiqueta)}</div>'
+                      f'<div>{texto}</div><div class="punto"></div></div>')
+    if len(filas) > 12:
+        partes.append(f'<div class="vacio" style="margin-top:.6rem">+ {len(filas) - 12} usuario(s) más</div>')
     if anonimos > 0:
         partes.append(f'<div class="vacio" style="margin-top:.6rem">+ {anonimos} visitante(s) sin nombre</div>')
     st.markdown("".join(partes), unsafe_allow_html=True)
@@ -728,9 +747,9 @@ def menu_superior():
                 st.button(nombre, key=f"tema_{k}", on_click=elegir_tema, args=(nombre,))
             st.caption("«Sistema» sigue el modo claro u oscuro de tu dispositivo (Windows, Mac, Linux, iOS, Android).")
             st.markdown("**Registro (obligatorio)**")
-            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=10, placeholder="Escribe tu nombre",
+            st.text_input("Nombre", value=ss.nombre, key="nombre_menu", on_change=guardar_nombre, max_chars=20, placeholder="Escribe tu nombre",
                           label_visibility="collapsed")
-            st.caption("Es obligatorio: tu nombre aparece en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
+            st.caption("Es obligatorio. Los demás solo ven tu inicial en la lista de usuarios en línea. Si lo borras, la página te lo pedirá de nuevo.")
     if ss.vista != "inicio":
         st.markdown("<div class='vacio' style='text-align:center'>Aplicación IoTecNM · Instituto Tecnológico Nacional de México, Tuxtla Gutiérrez</div>",
                     unsafe_allow_html=True)
@@ -754,7 +773,7 @@ def pantalla_registro():
         st.markdown('<div class="hero-titulo reg-inst">Instituto Tecnológico Nacional Tuxtla Gutiérrez</div>'
                     '<div class="hero-titulo reg-app">Aplicación IoTecNM</div>', unsafe_allow_html=True)
         with st.form("form_registro", border=False):
-            st.text_input("Tu nombre", key="alias_nuevo", max_chars=10, placeholder="Escribe tu nombre")
+            st.text_input("Tu nombre", key="alias_nuevo", max_chars=20, placeholder="Escribe tu nombre")
             st.form_submit_button("Entrar", type="primary", on_click=registrar)
         if ss.get("reg_err"):
             st.error(ss.reg_err)
